@@ -6,6 +6,10 @@ For a full description of the assignment, see the assignment handout at
 If you see any issues with the assignment handout or code, please feel free to
 raise a GitHub issue or open a pull request with a fix.
 
+## Progress tracker
+A lightweight working log for this assignment is available in [PROGRESS.md](./PROGRESS.md).
+It is intended to track what has been learned, what has been implemented, and what comes next.
+
 ## Setup
 
 ### Environment
