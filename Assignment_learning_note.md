@@ -129,3 +129,46 @@ This is clearer than relying on whichever global or Conda environment happens to
 - Confusing the Python `>>>` prompt with the shell prompt.
 - Using `deactivate` to leave the Python interpreter instead of using `exit()`.
 - Manually editing `.venv` instead of changing project configuration and rebuilding the environment.
+
+## 2. Unicode Code Points
+
+`chr()` is a Python built-in function that converts an integer Unicode code point into a one-character string:
+
+```python
+chr(65)  # 'A', U+0041
+chr(48)  # '0', U+0030
+chr(0)   # NUL, U+0000
+```
+
+NUL is an invisible control character, not the visible digit `"0"`. Python displays it as the hexadecimal escape `\x00`. `repr()` exposes this representation, while `print()` renders the invisible character itself.
+
+Key idea: a character can exist in a string even when it has no visible glyph.
+
+### Problem `unicode1`: Understanding Unicode (1 point)
+
+**Deliverables**
+
+1. `chr(0)` returns the Unicode NUL control character, `U+0000`.
+2. `repr()` displays NUL using the visible escape sequence `'\x00'`, while `print()` renders the character itself, which has no visible glyph.
+3. When NUL occurs in a Python string, it remains part of the string even though it is invisible, and UTF-8 encodes it as the byte `0x00`.
+
+### Useful ASCII ranges
+
+- `0-31`: mostly invisible ASCII control characters
+  - `7`: bell
+  - `8`: backspace
+  - `9`: tab
+  - `10`: newline
+  - `13`: carriage return
+- `32`: space
+- `33-47`: punctuation such as `! " # $ % & ' ( ) * + , - . /`
+- `48-57`: digits `0-9`
+- `65-90`: uppercase letters `A-Z`
+- `97-122`: lowercase letters `a-z`
+
+Unicode preserves ASCII in its first 128 code points. The exact values do not need to be memorized; use `ord()` and `chr()` to convert in either direction:
+
+```python
+ord("A")  # 65
+chr(65)   # 'A'
+```

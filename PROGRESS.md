@@ -8,7 +8,7 @@ This document records completed work, concepts learned, test checkpoints, and th
 - `uv` is installed and the project environment has been synchronized.
 - The initial test suite runs successfully and reports 46 expected `NotImplementedError` failures.
 - No assignment implementation has started yet.
-- Next study step: Assignment Overview, followed by Section 2.1, The Unicode Standard.
+- Next study step: Section 2.2, Unicode Encodings (`unicode2`).
 
 ## Assignment deliverables
 
@@ -26,13 +26,13 @@ For this self-study repository, the project should also preserve a clear impleme
 - [x] Read the repository structure and assignment workflow
 - [x] Install `uv` and synchronize the environment
 - [x] Run the complete test suite to establish a baseline
-- [ ] Review the implementation, experiment, and submission expectations
+- [x] Review the implementation, experiment, and submission expectations
 
 Learning goal: understand how the handout, implementation package, test adapters, tests, written responses, and experiments fit together.
 
 ### 2. Byte-Pair Encoding Tokenizer
 
-- [ ] Understand Unicode characters and code points (`unicode1`)
+- [x] Understand Unicode characters and code points (`unicode1`)
 - [ ] Understand UTF-8 byte encoding and invalid byte sequences (`unicode2`)
 - [ ] Understand byte-level subword tokenization
 - [ ] Implement and test BPE training (`train_bpe`)
@@ -128,5 +128,17 @@ Learned:
 
 Next:
 
-- Read the Assignment Overview.
-- Work through `unicode1` interactively and prepare its short written responses.
+- Work through `unicode2` and compare Unicode encodings.
+
+### 2026-07-03 - Unicode characters and code points
+
+Completed:
+
+- Investigated the NUL character with `chr(0)`, `repr()`, `print()`, and UTF-8 encoding.
+- Completed the three written responses for `unicode1`.
+
+Learned:
+
+- Unicode code points can represent invisible control characters.
+- `repr()` exposes an inspectable escape sequence even when printed output has no visible glyph.
+- An invisible character can still occupy a position in a string and produce encoded bytes.
