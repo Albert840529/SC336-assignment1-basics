@@ -1,40 +1,132 @@
 # CS336 Assignment 1 Progress Tracker
 
-This file is a lightweight study log for the assignment. It records what has been learned, what has been implemented, and what should come next.
+This document records completed work, concepts learned, test checkpoints, and the next study step. A task is checked only after its deliverable has been completed or its relevant tests pass.
 
 ## Current status
-- Repository cloned and reviewed
-- Assignment structure understood at a high level
-- Next step: set up the Python environment and run the first tests
 
-## Learning approach
-The assignment will be approached in a structured order:
-1. understand the core building blocks
-2. implement the simplest components first
-3. use the tests as checkpoints for correctness
-4. move to later topics only after the earlier ones are working
+- Repository setup is complete.
+- `uv` is installed and the project environment has been synchronized.
+- The initial test suite runs successfully and reports 46 expected `NotImplementedError` failures.
+- No assignment implementation has started yet.
+- Next study step: Assignment Overview, followed by Section 2.1, The Unicode Standard.
 
-## Milestones
-- [x] Clone the repository and review the folder structure
-- [ ] Set up the Python environment with `uv`
-- [ ] Run the initial test suite and inspect the first failures
-- [ ] Implement the basic tensor and linear building blocks
-- [ ] Implement embedding and feedforward components
-- [ ] Implement attention and masking
-- [ ] Implement RoPE and transformer block logic
-- [ ] Work through tokenizer and BPE basics
-- [ ] Finish optimizer and serialization pieces
+## Assignment deliverables
 
-## What I learned so far
-- The assignment is organized around a small transformer implementation scaffold.
-- The test suite and adapter functions define the practical checkpoints for the work.
-- The repository is split into implementation code under the main package and tests under the test suite.
+The official submission consists of two main artifacts:
 
-## What I built so far
-- Reviewed the repository layout
-- Read the assignment README and the official handout
-- Identified the main implementation checkpoints
+- `writeup.pdf`: typeset answers to the written and experimental questions.
+- `code.zip`: the implementation produced by `make_submission.sh`.
 
-## Next step
-- Install the environment and run the first test pass
-- Begin with the earliest adapter functions and their corresponding tests
+For this self-study repository, the project should also preserve a clear implementation history, experiment records, learning notes, and reproducible test commands.
+
+## Handout roadmap
+
+### 1. Assignment Overview
+
+- [x] Read the repository structure and assignment workflow
+- [x] Install `uv` and synchronize the environment
+- [x] Run the complete test suite to establish a baseline
+- [ ] Review the implementation, experiment, and submission expectations
+
+Learning goal: understand how the handout, implementation package, test adapters, tests, written responses, and experiments fit together.
+
+### 2. Byte-Pair Encoding Tokenizer
+
+- [ ] Understand Unicode characters and code points (`unicode1`)
+- [ ] Understand UTF-8 byte encoding and invalid byte sequences (`unicode2`)
+- [ ] Understand byte-level subword tokenization
+- [ ] Implement and test BPE training (`train_bpe`)
+- [ ] Train and inspect TinyStories and OpenWebText tokenizers
+- [ ] Implement and test tokenizer encoding and decoding (`tokenizer`)
+- [ ] Measure compression ratio, throughput, and memory behavior
+- [ ] Encode the training and validation datasets
+
+Learning goal: understand how arbitrary text becomes a compact sequence of integer token IDs without an out-of-vocabulary problem.
+
+### 3. Transformer Language Model Architecture
+
+- [ ] Understand tensor shapes, batching, and `einsum`
+- [ ] Implement Linear and Embedding modules
+- [ ] Implement RMSNorm and the SwiGLU feed-forward network
+- [ ] Implement Rotary Positional Embeddings
+- [ ] Implement numerically stable softmax
+- [ ] Implement scaled dot-product attention and causal multi-head self-attention
+- [ ] Assemble and test a pre-norm Transformer block
+- [ ] Assemble and test the complete Transformer language model
+- [ ] Complete Transformer parameter, memory, and FLOP accounting
+
+Learning goal: understand the data flow, tensor shapes, mathematical operations, and resource costs of a decoder-only Transformer.
+
+### 4. Training a Transformer LM
+
+- [ ] Implement numerically stable cross-entropy
+- [ ] Study SGD behavior and learning-rate sensitivity
+- [ ] Implement AdamW
+- [ ] Complete AdamW memory and compute accounting
+- [ ] Implement cosine learning-rate scheduling with warmup
+- [ ] Implement gradient clipping
+
+Learning goal: understand how loss, gradients, optimizer state, learning-rate schedules, and stability controls turn predictions into parameter updates.
+
+### 5. Training Loop
+
+- [ ] Implement batched next-token data loading
+- [ ] Implement checkpoint saving and loading
+- [ ] Build a configurable, memory-efficient training loop
+
+Learning goal: connect tokenized data, the model, loss, optimizer, evaluation, and checkpointing into a reproducible training system.
+
+### 6. Generating Text
+
+- [ ] Implement autoregressive decoding
+- [ ] Support temperature and top-p sampling
+- [ ] Stop generation at the end-of-text token
+
+Learning goal: understand how next-token probabilities become generated text and how sampling choices affect output quality.
+
+### 7. Experiments
+
+- [ ] Create experiment logging with step, time, training loss, and validation loss
+- [ ] Train and tune a TinyStories model
+- [ ] Study learning-rate and batch-size effects
+- [ ] Generate and analyze model samples
+- [ ] Compare RMSNorm, pre-norm/post-norm, RoPE/NoPE, and SwiGLU/SiLU variants
+- [ ] Run the OpenWebText experiment when compute resources permit
+- [ ] Consider the optional leaderboard modification
+
+Learning goal: use controlled experiments and learning curves to explain why architectural and optimization choices matter.
+
+## Test strategy
+
+Run only the test associated with the current component during development. Run the complete suite at major milestones.
+
+Examples:
+
+```sh
+uv run pytest -k test_linear
+uv run pytest tests/test_train_bpe.py
+uv run pytest tests/test_tokenizer.py
+uv run pytest
+```
+
+## Learning log
+
+### 2026-06-27 - Environment and baseline
+
+Completed:
+
+- Installed `uv` with Homebrew.
+- Synchronized the project from `pyproject.toml` and `uv.lock`.
+- Ran the full test suite from the repository root.
+- Confirmed that the test infrastructure works and that the 46 failures are expected unimplemented adapters.
+
+Learned:
+
+- `uv sync` must be run inside `SC336-Assignment1`, where `pyproject.toml` is located.
+- `uv run` executes commands in the project-managed Python environment rather than the base Anaconda environment.
+- The initial failing suite is a baseline, not evidence of 46 separate bugs.
+
+Next:
+
+- Read the Assignment Overview.
+- Work through `unicode1` interactively and prepare its short written responses.
