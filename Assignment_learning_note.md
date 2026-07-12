@@ -172,3 +172,51 @@ Unicode preserves ASCII in its first 128 code points. The exact values do not ne
 ord("A")  # 65
 chr(65)   # 'A'
 ```
+
+## 3. Unicode Encodings and UTF-8
+
+Unicode assigns each character a code point. An encoding such as UTF-8 turns that code point into bytes.
+
+Example:
+
+```python
+ord("A")                  # 65, U+0041
+"A".encode("utf-8")       # b"A"
+list("A".encode("utf-8")) # [65]
+
+ord("你")                  # 20320, U+4F60
+"你".encode("utf-8")       # b"\xe4\xbd\xa0"
+list("你".encode("utf-8")) # [228, 189, 160]
+```
+
+Key distinction:
+
+- Unicode is the character-to-code-point system.
+- UTF-8 is a code-point-to-bytes encoding.
+- A byte is an 8-bit value from `0` to `255`.
+
+### UTF-8 byte patterns
+
+UTF-8 uses the leading bits of each byte to show whether the byte is a complete one-byte character, the start of a multi-byte character, or a continuation byte.
+
+- `0xxxxxxx`: one-byte ASCII character
+- `110xxxxx 10xxxxxx`: two-byte character
+- `1110xxxx 10xxxxxx 10xxxxxx`: three-byte character
+- `11110xxx 10xxxxxx 10xxxxxx 10xxxxxx`: four-byte character
+- `10xxxxxx`: continuation byte, not valid by itself at the start of a character
+
+For example, `"你"` is `U+4F60`, whose bits fit the three-byte UTF-8 pattern:
+
+```text
+U+4F60 -> 0100111101100000
+       -> 11100100 10111101 10100000
+       -> [228, 189, 160]
+```
+
+### Problem `unicode2`: Unicode Encodings (3 points)
+
+**Deliverables**
+
+1. UTF-8 is usually preferred over UTF-16 or UTF-32 for byte-level tokenization because it is space-efficient for common text, especially ASCII-heavy text, and it gives a fixed base vocabulary of 256 byte values that can represent any Unicode string.
+2. The byte-by-byte decoder is incorrect because many UTF-8 characters require multiple bytes. For example, `"你".encode("utf-8")` is `b"\xe4\xbd\xa0"`, and decoding only `b"\xe4"` is invalid because it is an incomplete three-byte sequence.
+3. `b"\xff\xff"` is an invalid UTF-8 byte sequence because `0xff` has the bit pattern `11111111`, which is not a legal UTF-8 start byte.

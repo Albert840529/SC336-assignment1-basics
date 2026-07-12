@@ -8,7 +8,7 @@ This document records completed work, concepts learned, test checkpoints, and th
 - `uv` is installed and the project environment has been synchronized.
 - The initial test suite runs successfully and reports 46 expected `NotImplementedError` failures.
 - No assignment implementation has started yet.
-- Next study step: Section 2.2, Unicode Encodings (`unicode2`).
+- Next study step: byte-level subword tokenization and BPE training.
 
 ## Assignment deliverables
 
@@ -33,7 +33,7 @@ Learning goal: understand how the handout, implementation package, test adapters
 ### 2. Byte-Pair Encoding Tokenizer
 
 - [x] Understand Unicode characters and code points (`unicode1`)
-- [ ] Understand UTF-8 byte encoding and invalid byte sequences (`unicode2`)
+- [x] Understand UTF-8 byte encoding and invalid byte sequences (`unicode2`)
 - [ ] Understand byte-level subword tokenization
 - [ ] Implement and test BPE training (`train_bpe`)
 - [ ] Train and inspect TinyStories and OpenWebText tokenizers
@@ -142,3 +142,17 @@ Learned:
 - Unicode code points can represent invisible control characters.
 - `repr()` exposes an inspectable escape sequence even when printed output has no visible glyph.
 - An invisible character can still occupy a position in a string and produce encoded bytes.
+
+### 2026-07-12 - Unicode encodings and UTF-8 bytes
+
+Completed:
+
+- Compared UTF-8, UTF-16, and UTF-32 encodings on simple text and emoji examples.
+- Traced how `"你"` maps from Unicode code point `U+4F60` to UTF-8 bytes `[228, 189, 160]`.
+- Completed the three written responses for `unicode2`.
+
+Learned:
+
+- Unicode code points are abstract character numbers; encodings turn them into bytes.
+- UTF-8 uses leading-bit patterns to distinguish one-byte characters, multi-byte starts, and continuation bytes.
+- Not every byte sequence is valid UTF-8; for example, `0xff` is not a legal UTF-8 start byte.
