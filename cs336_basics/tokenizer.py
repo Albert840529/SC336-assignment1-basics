@@ -38,25 +38,14 @@ def train_bpe(
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """Train a byte-level BPE tokenizer.
 
-    Milestone order:
+    Pipeline:
+        initialize_vocab -> split_on_special_tokens -> count_pretokens
+        -> [count_adjacent_pairs -> choose_pair_to_merge
+            -> merge_pair_in_pretokens] repeated
 
-    1. Initialize the vocabulary with all 256 single-byte tokens.
-    2. Add special tokens to the vocabulary.
-    3. Read the corpus and split it on special tokens.
-    4. Pre-tokenize each non-special segment with the GPT-2 regex.
-    5. Convert each pre-token into a tuple of byte tokens and count frequency.
-    6. Repeatedly:
-       - count adjacent pairs,
-       - choose the most frequent pair with the required tie-break,
-       - merge that pair everywhere,
-       - append the merge and extend the vocabulary.
-    7. Stop when ``len(vocab) == vocab_size`` or no pair remains.
-
-    Returns:
-        vocab:
-            Mapping from token ID to token bytes.
-        merges:
-            Ordered list of merge operations. Each item is ``(left, right)``.
+    The bracketed part repeats until ``vocab_size`` is reached or no pair
+    remains. ``vocab`` maps token IDs to bytes; ``merges`` records the BPE
+    merge order as ``(left, right)`` pairs.
     """
     vocab = initialize_vocab(special_tokens)
     merges: list[tuple[bytes, bytes]] = []
@@ -71,31 +60,19 @@ def train_bpe(
 def initialize_vocab(special_tokens: list[str]) -> dict[int, bytes]:
     """Create the starting vocabulary.
 
-    Byte-level BPE starts with one token for each possible byte value:
-    ``0`` through ``255``. Special tokens are appended after those byte tokens.
+    Example:
+        bytes([0])   -> b"\\x00"  -> vocab[0]
+        bytes([65])  -> b"A"       -> vocab[65]
+        bytes([255]) -> b"\\xff"  -> vocab[255]
+
+        special_tokens = ["<|endoftext|>"]
+        vocab[256] = b"<|endoftext|>"
+
+    Every possible byte occupies IDs 0 through 255. Special tokens are
+    appended afterwards and never participate in BPE pair counting.
     """
-    # Example trace:
-    # range(256) gives integer byte values:
-    # 0, 1, 2, ..., 65, ..., 255
-    #
-    # bytes([0])  -> b"\x00"
-    # bytes([65]) -> b"A"
-    # bytes([255]) -> b"\xff"
-    #
-    # After this comprehension:
-    # vocab[0]   = b"\x00"
-    # vocab[65]  = b"A"
-    # vocab[255] = b"\xff"
     vocab = {i: bytes([i]) for i in range(256)}
 
-    # Example with special_tokens = ["<|endoftext|>"]:
-    # token                     = "<|endoftext|>"
-    # token.encode("utf-8")     = b"<|endoftext|>"
-    # len(vocab) before insert  = 256
-    # vocab[256]                = b"<|endoftext|>"
-    #
-    # Special tokens get fixed IDs, but they are not used when counting BPE
-    # merge statistics.
     for token in special_tokens:
         vocab[len(vocab)] = token.encode("utf-8")
 
@@ -105,64 +82,48 @@ def initialize_vocab(special_tokens: list[str]) -> dict[int, bytes]:
 def split_on_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
     """Split text at special tokens so BPE cannot merge across them.
 
-    Special tokens act as hard boundaries during training. They should not
-    contribute to pair counts.
+    Example:
+        text = "Hello<|endoftext|>World"
+        special_tokens = ["<|endoftext|>"]
+        result = ["Hello", "World"]
+
+    The special token is removed from the training text here, but it remains
+    in the vocabulary from ``initialize_vocab``. Regex escaping makes the
+    ``|`` characters literal rather than regex syntax.
     """
     if not special_tokens:
         return [text]
 
-    # Example trace:
-    # text           = "Hello<|endoftext|>World again"
-    # special_tokens = ["<|endoftext|>"]
-    # pattern        = "<\\|endoftext\\|>"
-    # segments       = ["Hello", "World again"]
-    #
-    # The special token is removed from training text here. It is still added
-    # to the vocabulary by ``initialize_vocab``.
-
-    # Escape special tokens so regex treats characters like "|" literally.
     escaped_tokens = [re.escape(token) for token in special_tokens]
     pattern = "|".join(escaped_tokens)
 
     segments = re.split(pattern, text)
 
-    return [segment for segment in segments if segment]  # remove empty strings
+    return [segment for segment in segments if segment]
 
 
 def count_pretokens(
     text_segments: list[str],
 ) -> Counter[tuple[bytes, ...]]:
-    """Pre-tokenize text segments and count each UTF-8 byte-token sequence.
+    """Pre-tokenize text and count identical sequences of UTF-8 byte tokens.
 
-    Each key should be a tuple of bytes objects, for example:
-    ``"low" -> (b"l", b"o", b"w")``.
+    Example:
+        text_segments = ["low and low"]
+        PAT matches      "low", " and", " low"
+        "low"           -> b"low" -> (b"l", b"o", b"w")
+        " and"          -> b" and" -> (b" ", b"a", b"n", b"d")
+
+        Returned Counter:
+        {
+            (b"l", b"o", b"w"): 1,
+            (b" ", b"a", b"n", b"d"): 1,
+            (b" ", b"l", b"o", b"w"): 1,
+        }
+
+    A leading space is intentionally kept when PAT includes it: it belongs to
+    that pre-token. Non-ASCII text is first encoded as UTF-8 bytes.
     """
     count = Counter()
-
-    # Example trace 1:
-    # text_segments = ["low and lower"]
-    # segment       = "low and lower"
-    # match.group() = "low"
-    # pretoken      = "low"
-    # token_bytes   = b"low"
-    # byte_tuple    = (b"l", b"o", b"w")
-    # count[(b"l", b"o", b"w")] += 1
-    #
-    # Later in the same segment:
-    # match.group() = " and"
-    # pretoken      = " and"
-    # token_bytes   = b" and"
-    # byte_tuple    = (b" ", b"a", b"n", b"d")
-    #
-    # Example trace 2:
-    # text_segments = ["some text that i'll pre-tokenize"]
-    # match.group() values from PAT:
-    # "some", " text", " that", " i", "'ll", " pre", "-", "tokenize"
-    #
-    # Example trace 3:
-    # pretoken      = "你好"
-    # token_bytes   = b"\xe4\xbd\xa0\xe5\xa5\xbd"
-    # byte_tuple    = (b"\xe4", b"\xbd", b"\xa0", b"\xe5", b"\xa5", b"\xbd")
     for segment in text_segments:
         for match in re.finditer(PAT, segment):
             pretoken = match.group()
@@ -175,8 +136,31 @@ def count_pretokens(
 def count_adjacent_pairs(
     pretoken_counts: Counter[tuple[bytes, ...]],
 ) -> Counter[tuple[bytes, bytes]]:
-    """Count adjacent token pairs, weighted by pre-token frequency."""
-    pass
+    """Count adjacent token pairs, weighted by pre-token frequency.
+
+    Example:
+        pretoken_counts = {
+            (b"l", b"o", b"w"): 5,
+            (b"l", b"o", b"w", b"e", b"r"): 2,
+        }
+
+        zip((b"l", b"o", b"w"), (b"o", b"w"))
+        -> (b"l", b"o"), (b"o", b"w")
+
+        Returned pair counts:
+        (b"l", b"o"): 7  # 5 from "low" + 2 from "lower"
+        (b"o", b"w"): 7
+        (b"w", b"e"): 2
+        (b"e", b"r"): 2
+
+    Pairs never cross from one pre-token into the next.
+    """
+    pair_counts = Counter()
+
+    for pretoken, frequency in pretoken_counts.items():
+        for left, right in zip(pretoken, pretoken[1:]):
+            pair_counts[(left, right)] += frequency
+    return pair_counts
 
 
 def choose_pair_to_merge(
@@ -184,8 +168,12 @@ def choose_pair_to_merge(
 ) -> tuple[bytes, bytes] | None:
     """Choose the highest-frequency pair.
 
-    If multiple pairs have the same frequency, choose the lexicographically
-    greatest pair, matching Python's ``max`` behavior on tuples.
+    Example:
+        pair_counts = {(b"A", b"B"): 4, (b"B", b"A"): 4}
+        chosen pair = (b"B", b"A")
+
+    When frequencies tie, choose the lexicographically greatest pair, matching
+    Python's ``max`` behavior on tuples. Return ``None`` if no pair exists.
     """
     pass
 
@@ -194,5 +182,14 @@ def merge_pair_in_pretokens(
     pretoken_counts: Counter[tuple[bytes, ...]],
     pair: tuple[bytes, bytes],
 ) -> Counter[tuple[bytes, ...]]:
-    """Replace every non-overlapping occurrence of ``pair`` in each pre-token."""
+    """Replace every non-overlapping occurrence of ``pair`` in each pre-token.
+
+    Example:
+        pair = (b"l", b"o")
+        (b"l", b"o", b"w") -> (b"lo", b"w")
+        (b"l", b"o", b"l", b"o") -> (b"lo", b"lo")
+
+    The frequency of each pre-token stays unchanged; only its token sequence
+    changes. A merged token is formed with ``left + right``.
+    """
     pass
