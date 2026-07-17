@@ -7,8 +7,9 @@ This document records completed work, concepts learned, test checkpoints, and th
 - Repository setup is complete.
 - `uv` is installed and the project environment has been synchronized.
 - The initial test suite runs successfully and reports 46 expected `NotImplementedError` failures.
-- No assignment implementation has started yet.
-- Next study step: byte-level subword tokenization and BPE training.
+- A naive `train_bpe` implementation is complete and connected through the test adapter.
+- Its correctness and special-token tests pass; its speed test still requires optimization.
+- Next study step: optimize BPE pair counting, then implement tokenizer encoding and decoding.
 
 ## Assignment deliverables
 
@@ -34,8 +35,8 @@ Learning goal: understand how the handout, implementation package, test adapters
 
 - [x] Understand Unicode characters and code points (`unicode1`)
 - [x] Understand UTF-8 byte encoding and invalid byte sequences (`unicode2`)
-- [ ] Understand byte-level subword tokenization
-- [ ] Implement and test BPE training (`train_bpe`)
+- [x] Understand byte-level subword tokenization and the BPE merge loop
+- [ ] Complete BPE training performance optimization (`train_bpe` correctness baseline passes; speed test pending)
 - [ ] Train and inspect TinyStories and OpenWebText tokenizers
 - [ ] Implement and test tokenizer encoding and decoding (`tokenizer`)
 - [ ] Measure compression ratio, throughput, and memory behavior
@@ -156,3 +157,26 @@ Learned:
 - Unicode code points are abstract character numbers; encodings turn them into bytes.
 - UTF-8 uses leading-bit patterns to distinguish one-byte characters, multi-byte starts, and continuation bytes.
 - Not every byte sequence is valid UTF-8; for example, `0xff` is not a legal UTF-8 start byte.
+
+### 2026-07-17 - Naive BPE training baseline
+
+Completed:
+
+- Implemented vocabulary initialization, special-token boundaries, pre-token counting, adjacent-pair counting, pair selection, and non-overlapping pair merging.
+- Connected `tests/adapters.py::run_train_bpe` to `cs336_basics.tokenizer.train_bpe`.
+- Ran `uv run pytest tests/test_train_bpe.py -vv`.
+
+Test checkpoint:
+
+- `test_train_bpe`: passed.
+- `test_train_bpe_special_tokens`: passed.
+- `test_train_bpe_speed`: failed because the naive implementation took about 2.21 seconds; the threshold is 1.5 seconds.
+
+Learned:
+
+- BPE adds one token per selected pair; longer tokens emerge across multiple merge rounds.
+- The naive loop rescans all pre-tokens after each merge. Incremental pair-count caching is the next optimization task.
+
+Next:
+
+- Profile and optimize BPE pair counting without changing the expected merge order.

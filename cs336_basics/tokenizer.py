@@ -51,9 +51,20 @@ def train_bpe(
     merges: list[tuple[bytes, bytes]] = []
 
     # TODO: Build ``pretoken_counts`` from the input file.
-
+    text = Path(input_path).read_text(encoding="utf-8")
+    text_segments = split_on_special_tokens(text, special_tokens)
+    pretoken_counts = count_pretokens(text_segments)
     # TODO: Repeatedly count pairs, choose a pair, merge it, and update vocab.
+    while len(vocab) < vocab_size:
+        pair_counts = count_adjacent_pairs(pretoken_counts)
+        pair = choose_pair_to_merge(pair_counts)
 
+        if pair is None:
+            break
+
+        vocab[len(vocab)] = pair[0] + pair[1]
+        merges.append(pair)
+        pretoken_counts = merge_pair_in_pretokens(pretoken_counts, pair)
     return vocab, merges
 
 
@@ -175,7 +186,10 @@ def choose_pair_to_merge(
     When frequencies tie, choose the lexicographically greatest pair, matching
     Python's ``max`` behavior on tuples. Return ``None`` if no pair exists.
     """
-    pass
+    if not pair_counts:
+        return None
+
+    return max(pair_counts, key=lambda pair: (pair_counts[pair], pair))
 
 
 def merge_pair_in_pretokens(
@@ -192,4 +206,25 @@ def merge_pair_in_pretokens(
     The frequency of each pre-token stays unchanged; only its token sequence
     changes. A merged token is formed with ``left + right``.
     """
-    pass
+    merged_counts = Counter()
+
+    for pretoken, frequency in pretoken_counts.items():
+        merged_tokens = []
+        index = 0
+
+        while index < len(pretoken):
+            is_target_pair = (
+                index + 1 < len(pretoken)
+                and (pretoken[index], pretoken[index + 1]) == pair
+            )
+
+            if is_target_pair:
+                merged_tokens.append(pair[0] + pair[1])
+                index += 2
+            else:
+                merged_tokens.append(pretoken[index])
+                index += 1
+
+        merged_counts[tuple(merged_tokens)] += frequency
+
+    return merged_counts

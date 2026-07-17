@@ -220,3 +220,26 @@ U+4F60 -> 0100111101100000
 1. UTF-8 is usually preferred over UTF-16 or UTF-32 for byte-level tokenization because it is space-efficient for common text, especially ASCII-heavy text, and it gives a fixed base vocabulary of 256 byte values that can represent any Unicode string.
 2. The byte-by-byte decoder is incorrect because many UTF-8 characters require multiple bytes. For example, `"你".encode("utf-8")` is `b"\xe4\xbd\xa0"`, and decoding only `b"\xe4"` is invalid because it is an incomplete three-byte sequence.
 3. `b"\xff\xff"` is an invalid UTF-8 byte sequence because `0xff` has the bit pattern `11111111`, which is not a legal UTF-8 start byte.
+
+## 4. Naive BPE Training
+
+Byte-level BPE begins with all 256 possible byte values as tokens. It repeatedly
+merges the most frequent adjacent token pair inside each pre-token.
+
+```text
+initialize vocabulary
+-> split on special tokens
+-> pre-tokenize and count UTF-8 byte sequences
+-> repeat: count pairs -> choose pair -> add token -> merge occurrences
+```
+
+Key points:
+
+- `vocab_size` is the main stopping condition. BPE learns one new token per
+  merge; token length emerges gradually, for example `l + o -> lo`, then
+  `lo + w -> low` if that pair is selected later.
+- `merges` records the learned merge order. `vocab` maps each token ID to its
+  byte representation.
+- Pre-token boundaries and special-token boundaries are never crossed.
+- The naive implementation recomputes all pair counts after every merge. It is
+  correct but slower than an incremental cached-count implementation.
