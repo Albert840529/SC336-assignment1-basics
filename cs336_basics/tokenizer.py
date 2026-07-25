@@ -54,9 +54,12 @@ def train_bpe(
     text = Path(input_path).read_text(encoding="utf-8")
     text_segments = split_on_special_tokens(text, special_tokens)
     pretoken_counts = count_pretokens(text_segments)
+    # 這行optimize要放外面
+    pair_counts = count_adjacent_pairs(pretoken_counts)
     # TODO: Repeatedly count pairs, choose a pair, merge it, and update vocab.
     while len(vocab) < vocab_size:
-        pair_counts = count_adjacent_pairs(pretoken_counts)
+        # 這行naive才在裡面，optimize要放外面
+        # pair_counts = count_adjacent_pairs(pretoken_counts)
         pair = choose_pair_to_merge(pair_counts)
 
         if pair is None:
@@ -64,7 +67,13 @@ def train_bpe(
 
         vocab[len(vocab)] = pair[0] + pair[1]
         merges.append(pair)
-        pretoken_counts = merge_pair_in_pretokens(pretoken_counts, pair)
+        # Old naive use this function
+        # pretoken_counts = merge_pair_in_pretokens(pretoken_counts, pair)
+        pretoken_counts, pair_counts = merge_pair_and_update_counts(
+            pretoken_counts,
+            pair_counts,
+            pair,
+        )
     return vocab, merges
 
 
@@ -190,6 +199,7 @@ def choose_pair_to_merge(
         return None
 
     return max(pair_counts, key=lambda pair: (pair_counts[pair], pair))
+    # return max(pair_counts, key=lambda pair: pair_counts[pair])
 
 
 def merge_pair_in_pretokens(
@@ -213,13 +223,11 @@ def merge_pair_in_pretokens(
         index = 0
 
         while index < len(pretoken):
-            is_target_pair = (
-                index + 1 < len(pretoken)
-                and (pretoken[index], pretoken[index + 1]) == pair
-            )
+            is_target_pair = index + 1 < len(pretoken) and (pretoken[index], pretoken[index + 1]) == pair
 
             if is_target_pair:
                 merged_tokens.append(pair[0] + pair[1])
+                #'lo'
                 index += 2
             else:
                 merged_tokens.append(pretoken[index])
@@ -228,3 +236,63 @@ def merge_pair_in_pretokens(
         merged_counts[tuple(merged_tokens)] += frequency
 
     return merged_counts
+
+
+def merge_pair_and_update_counts(
+    pretoken_counts: Counter[tuple[bytes, ...]],
+    pair_counts: Counter[tuple[bytes, bytes]],
+    pair: tuple[bytes, bytes],
+) -> tuple[Counter[tuple[bytes, ...]], Counter[tuple[bytes, bytes]]]:
+    """Merge one pair and incrementally update the cached pair counts.
+
+    Example:
+        pretoken = (b"x", b"A", b"B", b"y")
+        pair = (b"A", b"B")
+        merged pretoken = (b"x", b"AB", b"y")
+
+        Removed pair contributions: (b"x", b"A"), (b"A", b"B"), (b"B", b"y")
+        Added pair contributions:   (b"x", b"AB"), (b"AB", b"y")
+
+    Each count change must be weighted by the pre-token frequency. This helper
+    will eventually replace the full ``count_adjacent_pairs`` rescan inside the
+    training loop. It should return both updated Counters.
+    """
+    updated_pretoken_counts = Counter()
+    updated_pair_counts = pair_counts.copy()
+
+    for pretoken, frequency in pretoken_counts.items():
+        has_target_pair = any(adjacent_pair == pair for adjacent_pair in zip(pretoken, pretoken[1:]))
+
+        if not has_target_pair:
+            updated_pretoken_counts[pretoken] += frequency
+            continue
+
+        # Remove this affected pre-token's old contribution from the cache.
+        for old_pair in zip(pretoken, pretoken[1:]):
+            updated_pair_counts[old_pair] -= frequency
+
+            if updated_pair_counts[old_pair] == 0:
+                del updated_pair_counts[old_pair]
+
+        # Build this pre-token's merged replacement.
+        merged_tokens = []
+        index = 0
+
+        while index < len(pretoken):
+            is_target_pair = index + 1 < len(pretoken) and (pretoken[index], pretoken[index + 1]) == pair
+
+            if is_target_pair:
+                merged_tokens.append(pair[0] + pair[1])
+                index += 2
+            else:
+                merged_tokens.append(pretoken[index])
+                index += 1
+
+        merged_pretoken = tuple(merged_tokens)
+        updated_pretoken_counts[merged_pretoken] += frequency
+
+        # Add this affected pre-token's new contribution to the cache.
+        for new_pair in zip(merged_pretoken, merged_pretoken[1:]):
+            updated_pair_counts[new_pair] += frequency
+
+    return updated_pretoken_counts, updated_pair_counts
